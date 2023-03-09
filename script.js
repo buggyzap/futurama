@@ -15,8 +15,12 @@ async function getResource(resource) {
 
 class Characters {
   characters = [];
+  filters = [];
+  favorite = [];
   constructor(characters = []) {
     this.characters = characters;
+    this.filters = characters;
+    this.favorite = JSON.parse(localStorage.getItem("_favorite") ?? "[]");
   }
   getTemplate() {
     return `
@@ -32,23 +36,29 @@ class Characters {
     </div>
     `;
   }
+  isFavorite(id) {
+    return this.favorite.includes(id);
+  }
   getHtml() {
     if (this.characters.length === 0)
       throw new Error(
         "No chaarcters loaded, instantiate constructor with data first"
       );
     const html = [];
-    this.characters.forEach((character) => {
+    this.filters.forEach((character) => {
+      const favorite_label = this.isFavorite(character.id)
+        ? "Remove from favorite"
+        : "Add to favorite";
+      const favorite_classes = this.isFavorite(character.id)
+        ? "bg-red-600 hover:bg-red-500 focus-visible:outline-red-600"
+        : "bg-fuchsia-600 hover:bg-fuchsia-500 focus-visible:outline-fuchsia-600";
       html.push(
         this.getTemplate()
           .replaceAll("{{image}}", character.images.main)
           .replaceAll("{{name}}", character.name.last)
           .replaceAll("{{id}}", character.id)
-          .replaceAll("{{favorite_label}}", "Add to favorite")
-          .replaceAll(
-            "{{favorite_classes}}",
-            "bg-fuchsia-600 hover:bg-fuchsia-500 focus-visible:outline-fuchsia-600"
-          )
+          .replaceAll("{{favorite_label}}", favorite_label)
+          .replaceAll("{{favorite_classes}}", favorite_classes)
       );
     });
     return html.join("");
@@ -59,6 +69,25 @@ class Characters {
     const randomPosition = Math.floor(Math.random() * sayings.length);
     return sayings[randomPosition];
   }
+  toggleFavorite(id) {
+    if (this.favorite.includes(id))
+      this.favorite = this.favorite.filter((f) => f !== parseInt(id));
+    else this.favorite.push(id);
+    this.updateFavorite(this.favorite);
+  }
+  updateFavorite(favorite) {
+    localStorage.setItem("_favorite", JSON.stringify(favorite));
+    this.render();
+  }
+  keyupEvent = () => {
+    const searchEl = document.getElementById("charSearch");
+    const text = searchEl.value;
+    this.filters = this.characters.filter((char) =>
+      char.name.last.toLowerCase().startsWith(text)
+    );
+    if (text === "") this.filters = this.characters;
+    this.render();
+  };
   render() {
     document.getElementById("characters").innerHTML = this.getHtml();
     document.querySelectorAll(".say").forEach((el) => {
@@ -67,6 +96,16 @@ class Characters {
         alert(this.getRandomSayingById(id));
       });
     });
+    document.querySelectorAll(".togglefavorite").forEach((el) => {
+      el.addEventListener("click", () => {
+        const id = parseInt(el.getAttribute("data-id"));
+        this.toggleFavorite(id);
+      });
+    });
+    document.getElementById("searchContainer").style = "display:block";
+    const searchEl = document.getElementById("charSearch");
+    searchEl.removeEventListener("keyup", this.keyupEvent);
+    searchEl.addEventListener("keyup", this.keyupEvent);
   }
 }
 
